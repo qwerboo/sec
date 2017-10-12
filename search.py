@@ -11,7 +11,6 @@ import sys
 class Scrape(object):
     def __init__(self):
         self.search_url = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type=10-k&dateb=&owner=exclude&count=100"
-        self.session = None
         self.headers = {
             "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
             "Accept":"*/*",
@@ -19,15 +18,13 @@ class Scrape(object):
             "accept-encoding":"gzip, deflate, br",
             "charset":"UTF-8"
         }
-
-    def create_session(self):
         self.session = requests.Session()
         self.session.headers = self.headers
 
     def document_list(self, cik):
         url = self.search_url.format(cik=cik)
         listPage = self.session.get(url)
-        bs = BeautifulSoup(listPage.text, 'html.parser')
+        bs = BeautifulSoup(listPage.content, 'html.parser')
         company = Company()
         companyName = bs.find('span', {'class', 'companyName'}).text
         company.name_ = re.search('(.*)CIK', companyName).group(1)
@@ -36,14 +33,11 @@ class Scrape(object):
         match = re.search('SIC:(.*)State location: (.*)\| State of Inc.:(.*)\| Fiscal Year End: (\d*)', identInfo)
         if not match:
             match = re.search('SIC:(.*)State location: (.*) ()\| Fiscal Year End: (\d*)', identInfo)
-        print(identInfo)
-        try:
+        if match:
             company.sic_ = match.group(1).strip()
             company.location_ = match.group(2).strip()
             company.state_of_inc_ = match.group(3).strip()
             company.fiscal_year_end_ = match.group(4).strip()
-        except Exception as e:
-            raise e
         address = bs.findAll('div', {'class', 'mailer'})
         for addr in address[0].findAll('span', {'class', 'mailerAddress'}):
             if not company.maddr_street_:
@@ -89,7 +83,7 @@ class Scrape(object):
     def file_list(self, url):
         listPage = self.session.get(url)
         doc = Document()
-        bs = BeautifulSoup(listPage.text, 'html.parser')
+        bs = BeautifulSoup(listPage.content, 'html.parser')
         doc.url_ = url
         doc.acc_no_ = re.search('.*/(.*)-index.htm', url).group(1)
         infos = bs.findAll('div',{'class','info'})
@@ -105,13 +99,11 @@ class Scrape(object):
             match = re.search('IRS No.: (.*) \| State of Incorp.: (.*)()Type: (.*) \| Act: (.*) \| File No.: (.*) \| Film No.: (.*)SIC: (.*)', identInfo)
             if not match:
                 match = re.search('IRS No.: (.*)() \| Fiscal Year End: (.*)Type: (.*) \| Act: (.*) \| File No.: (.*) \| Film No.: (.*)SIC: (.*)', identInfo)
-        try:
+        if match:
             doc.state_of_inc_ = match.group(2)
             doc.fiscal_year_end_ = match.group(3)
             doc.type_ = match.group(4)
             doc.sic_ = match.group(8)
-        except Exception as e:
-            raise e
         address = bs.findAll('div', {'class', 'mailer'})
         for addr in address[0].findAll('span', {'class', 'mailerAddress'}):
             if not doc.maddr_street_:
@@ -167,22 +159,24 @@ class Scrape(object):
         f.size_ = record[4]
         try:
             source = self.session.get(f.url_)
-        except requests.exceptions.ReadTimeout as e1:
-            raise e1
-        except requests.exceptions.ConnectionError as e2:
-            raise e2
-
+        except Exception as e:
+            raise e
         if f.url_.endswith('.txt'):
-            f.rawdata_ = source.text
+            f.rawdata_ = source.content
         else:
-            bs = BeautifulSoup(source.text, 'html.parser')
+            bs = BeautifulSoup(source.content, 'html.parser')
             paragraphs = bs.findAll('div')
             if not paragraphs:
                 paragraphs = bs.findAll('p')
+            rawdata = ''
             for para in paragraphs:
-                if str(para.text).strip():
-                    f.rawdata_ = f.rawdata_ + str(para.text) + '\n'
-        print('%dM'%(sys.getsizeof(f.rawdata_)/1000000))
+                text = para.text.strip()
+                if text:
+                    if isinstance(text, int):
+                        text = str(text)
+                    rawdata += text + '\n'
+            f.rawdata_ = rawdata
+            f.msize = sys.getsizeof(f.rawdata_)/1000000)
         return f
 
 if __name__ == '__main__':

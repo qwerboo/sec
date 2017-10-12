@@ -1,158 +1,96 @@
 from openpyxl import load_workbook
 from search import Scrape
-from db import Mydb
-from tools import obj_to_dict
 import pymysql
 import time
-import queue
-import threading
 import traceback
 import logging
+from logging import setup_logging
 
-class Productor(threading.Thread):
-    def __init__(self, tName, q):
-        self.q = q
-        threading.Thread.__init__(self, name=tName)
+def get_conn():
+    conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
+                        user='ai',
+                        passwd='AI2017aws',
+                        charset="utf8mb4")
+    cur = conn.cursor()
+    return conn, cur
 
-    def run(self):
-        print("%s start"%threading.current_thread().name)
-        wb = load_workbook('CIK.xlsx')
-        sheet = wb.get_sheet_by_name('Sheet1')
-        for v in sheet.values:
-            self.q.put(v[0])
-            print('queue`s size:%s'%self.q.qsize())
-        print("%s end"%threading.current_thread().name)
-
-class Consumer(threading.Thread):
-    def __init__(self, tName, q):
-        self.q = q
-        threading.Thread.__init__(self, name=tName)
-        self.db = Mydb()
-        self.scrape = Scrape()
-
-    def run(self):
-        print("%s start"%threading.current_thread().name)
-        results = self.db.get('sec.tb_file', 'url')
-        fileSet = set(record[0] for record in results)
-        self.scrape.create_session()
-        while True:
-            try:
-                cik = self.q.get(True, 30)
-            except queue.Empty:
-                print("%s end"%threading.current_thread().name)
-                break
-            ctime = time.strftime('%Y-%m-%d %H:%M:%S')
-            try:
-                int(cik)
-            except ValueError as e:
-                traceback.print_exc()
-                continue
-            print('%s:%s'%(threading.current_thread().name,cik))
-            try:
-                r = self.db.get_one('sec.tb_company', 'id, is_ok', {'cik':cik})
-            except Exception as e:
-                if self.db.conn:
-                    self.db.conn.close()
-                self.db.conn = None
-                traceback.print_exc()
-                continue
-            if r and r[1] == 1:
-                continue
-            elif r:
-                companyid = r[0]
-            try:
-                company, urls = self.scrape.document_list(cik)
-            except Exception as e:
-                traceback.print_exc()
-                continue
-            company.ctime_ = ctime
-            try:
-                if not companyid:
-                    companyid = self.db.insert('sec.tb_company', obj_to_dict(company))
-            except Exception as e:
-                if self.db.conn:
-                    self.db.conn.close()
-                self.db.conn = None
-                traceback.print_exc()
-                continue
-            for url in urls:
-                print('%s:file list,%s'%(threading.current_thread().name,url))
-                try:
-                    doc, files = self.scrape.file_list(url)
-                except Exception as e:
-                    traceback.print_exc()
-                    continue
-                doc.company_id_ = companyid
-                try:
-                    r = self.db.get_one('sec.tb_document', 'id', {'url':url})
-                except Exception as e:
-                    if self.db.conn:
-                        self.db.conn.close()
-                    self.db.conn = None
-                    traceback.print_exc()
-                    continue
-                if not r:
-                    try:
-                        documentid = self.db.insert('sec.tb_document', obj_to_dict(doc))
-                    except Exception as e:
-                        if self.db.conn:
-                            self.db.conn.close()
-                        self.db.conn = None
-                        traceback.print_exc()
-                        continue
-                else:
-                    documentid = r[0]
-                for record in files:
-                    if record[2] in fileSet:
-                        print("已存在：%s"%record[2])
-                        continue
-                    print('%s:file,%s'%(threading.current_thread().name, record[2]))
-                    try:
-                        f = self.scrape.extract_rawdata(record)
-                    except Exception as e:
-                        self.scrape.create_session()
-                        traceback.print_exc()
-                        continue
+def main():
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    conn, cur = get_conn()
+    sql = "SELECT url from sec.tb_file"
+    sqlOk = "SELECT id, is_ok from sec.tb_company where cik = %s"
+    sqlInsertCompany = "INSERT into sec.tb_company(cik, name, sic, location, state_of_inc, \
+                        fiscal_year_end, baddr_state, baddr_city, baddr_street, baddr_zip, baddr_phone \
+                        maddr_street, maddr_city, maddr_state, maddr_zip, ctime) \
+                        values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    sqkUpdateCompany = "UPDATE sec.tb_company set is_ok = 1 where id = %s"
+    sqlDoc = "SELECT id from sec.tb_document where url = %s"
+    sqlInsetDoc = "INSERT into sec.tb_document(acc_no, url, company_id, type, filing_date, \
+                    period_of_report, accepted, documents, company_name, sic, state_of_inc, \
+                    fiscal_year_end, baddr_street, baddr_city, baddr_state, baddr_zip, \
+                    baddr_phone, maddr_street, maddr_city, maddr_state, maddr_zip) \
+                    values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    sqlInsertFile = "INSERT into sec.tb_file(company_id, doc_id, url, seq, describtion, type, \
+                    size, source, rawdata) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    fileSet = set()
+    if cur.execute(sql):
+        fileSet = set(record[0] for record in cur.fetchall())
+    scrape = Scrape()
+    wb = load_workbook('CIK.xlsx')
+    sheet = wb.get_sheet_by_name('Sheet1')
+    for v in sheet.values:
+        ctime = time.strftime('%Y-%m-%d %H:%M:%S')
+        cik = v[0]
+        try:
+            int(cik)
+        except ValueError as e:
+            continue
+        logger.debug('cik:%s'%cik)
+        companyid = None
+        isOk = 0
+        if cur.execute(sqlOk, cik):
+            record = cur.fetchone()
+            companyid = record[0]
+            isOk = record[1]
+        if not isOk:
+            company, urls = scrape.document_list(cik)
+        else:
+            continue
+        if not companyid:
+            cur.execute(sqlInsertCompany, (company.cik_, company.name_, company.sic_, \
+                        company.location_, company,state_of_inc_, company.fiscal_year_end_, \
+                        company.baddr_state_, company.baddr_city_, company.baddr_street_, \
+                        company.baddr_zip_, company.baddr_phone_, company.maddr_street_,  \
+                        company.maddr_city_, company.maddr_state_, company.maddr_zip_, ctime))
+            companyid = cur.lastrowid
+            conn.commit()
+        logger.debug('公司ID:%s,cik:%s'%(companyid, cik))
+        for url in urls:
+            doc, files = scrape.file_list(url)
+            doc.company_id_ = companyid
+            if cur.execute(sqlDoc, url):
+                docId = cur.fetchone()[0]
+            else:
+                cur.execute(sqlInsetDoc, (doc.acc_no_, doc.url_, doc.company_id_, doc.type_, doc.filing_date_, \
+                                doc.period_of_report_, doc.accepted_, doc.documents_, doc.company_name_, \
+                                doc.sic_, doc.state_of_inc_, doc.fiscal_year_end_, doc.baddr_street_, \
+                                doc.baddr_city_, doc.baddr_state_, doc.baddr_zip_, doc.baddr_phone_, \
+                                doc.maddr_street_, doc.maddr_city_, doc.maddr_state_, doc.maddr_zip_))
+                docId = cur.lastrowid
+                conn.commit()
+            for record in files:
+                if record[2] not in fileSet:
+                    f = scrape.extract_rawdata(record)
+                    logger.debug('文件实际大小：%s'%f.msize)
                     f.company_id_ = companyid
-                    f.doc_id_ = documentid
-                    try:
-                        self.db.insert('sec.tb_file', obj_to_dict(f))
-                    except Exception as e:
-                        if self.db.conn:
-                            self.db.conn.close()
-                        self.db.conn = None
-                        traceback.print_exc()
-                        continue
-                    self.db.conn.commit()
+                    f.doc_id_ = docId
+                    cur.execute(sqlInsertFile, (f.company_id_, f.doc_id_, f.url_, f.seq_, \
+                                f.describtion_, f.type_, f.size_, f.source_, f.rawdata_))
+                    conn.commit()
                     fileSet.add(f.url_)
-            try:
-                self.db.update('sec.tb_company', {'is_ok':1}, companyid)
-            except Exception as e:
-                if self.db.conn:
-                    self.db.conn.close()
-                self.db.conn = None
-                traceback.print_exc()
-                continue
-            self.db.conn.commit()
-        self.db.conn.close()
+        cur.execute(sqkUpdateCompany, companyid)
+        conn.commit()
 
 if __name__ == '__main__':
-    q = queue.Queue(100)
-    p = Productor('t_productor', q)
-    c1 = Consumer('t_consumer1', q)
-    c2 = Consumer('t_consumer2', q)
-    c3 = Consumer('t_consumer3', q)
-    c4 = Consumer('t_consumer4', q)
-    c5 = Consumer('t_consumer5', q)
-    p.start()
-    c1.start()
-    c2.start()
-    c3.start()
-    c4.start()
-    c5.start()
-    p.join()
-    c1.join()
-    c2.join()
-    c3.join()
-    c4.join()
-    c5.join()
+    main()

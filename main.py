@@ -7,12 +7,8 @@ from logging_config import setup_logging
 from openpyxl import load_workbook
 
 def get_conn():
-    # conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
-    #                     user='ai',
-    #                     passwd='AI2017aws',
-    #                     charset="utf8mb4")
     conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
-                        user='root',
+                        user='ai',
                         passwd='AI2017aws',
                         charset="utf8mb4")
     cur = conn.cursor()

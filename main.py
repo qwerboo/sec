@@ -7,14 +7,16 @@ from logging_config import setup_logging
 from openpyxl import load_workbook
 
 def get_conn():
-    # conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
-    #                     user='ai',
-    #                     passwd='AI2017aws',
-    #                     charset="utf8mb4")
-    conn = pymysql.connect(host='localhost',
-                        user='root',
+    conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
+                        user='ai',
                         passwd='AI2017aws',
-                        charset="utf8mb4")
+                        charset="utf8mb4",
+                        max_allowed_packet=1024000000)
+    # conn = pymysql.connect(host='localhost',
+    #                     user='root',
+    #                     passwd='AI2017aws',
+    #                     charset="utf8mb4",
+    #                     max_allowed_packet=1024000000)
     cur = conn.cursor()
     return conn, cur
 
@@ -87,7 +89,7 @@ def main():
             for record in files:
                 if record[2] not in fileSet:
                     f = scrape.extract_rawdata(record)
-                    logger.debug('文件实际大小：%s'%f.msize)
+                    logger.debug('文件大小：%s，文件实际大小：%s'%(f.size_, f.msize))
                     f.company_id_ = companyid
                     f.doc_id_ = docId
                     cur.execute(sqlInsertFile, (f.company_id_, f.doc_id_, f.url_, f.seq_, \

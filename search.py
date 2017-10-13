@@ -161,23 +161,25 @@ class Scrape(object):
             source = self.session.get(f.url_)
         except Exception as e:
             raise e
-        if f.url_.endswith('.txt'):
-            f.rawdata_ = source.content
-        else:
-            bs = BeautifulSoup(source.content, 'html.parser')
-            paragraphs = bs.findAll('div')
-            if not paragraphs:
-                paragraphs = bs.findAll('p')
-            rawdata = ''
-            for para in paragraphs:
-                text = para.text
-                text = re.sub('[\t\r\n]+', '', text)
-                if text:
-                    if isinstance(text, int):
-                        text = str(text)
-                    rawdata += text + '\n'
-            f.rawdata_ = rawdata
-            f.msize = sys.getsizeof(f.rawdata_)/1000000
+        f.source_ = source.content
+        f.msize = sys.getsizeof(f.source_)/1000000
+        # if f.url_.endswith('.txt'):
+        #     f.rawdata_ = source.content
+        # else:
+        #     bs = BeautifulSoup(source.content, 'html.parser')
+        #     paragraphs = bs.findAll('div')
+        #     if not paragraphs:
+        #         paragraphs = bs.findAll('p')
+        #     rawdata = ''
+        #     for para in paragraphs:
+        #         text = para.text.strip()
+        #         text = re.sub('[\t\r\n]+', '', text)
+        #         if text:
+        #             if isinstance(text, int):
+        #                 text = str(text)
+        #             rawdata += text + '\n'
+        #     f.rawdata_ = rawdata
+        #     f.msize = sys.getsizeof(f.rawdata_)/1000000
         return f
 
 if __name__ == '__main__':

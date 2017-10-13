@@ -171,7 +171,7 @@ class Scrape(object):
             rawdata = ''
             for para in paragraphs:
                 text = para.text
-                text = re.sub('\s+', '', text)
+                text = re.sub('[\t\r\n]+', '', text)
                 if text:
                     if isinstance(text, int):
                         text = str(text)

@@ -15,6 +15,8 @@ create table tb_company(
   maddr_city varchar(100) comment'',
   maddr_state varchar(50) comment'',
   maddr_zip varchar(50) comment'',
+  is_ok tinyint(1),
+  ctime datetime,
   primary key(id)
 )
 COMMENT='公司'
@@ -25,6 +27,7 @@ ENGINE='InnoDB'
 create table tb_document(
   id int not null auto_increment,
   acc_no varchar(50) comment'编号',
+  url varchar(500),
   company_id int comment'',
   type varchar(20) comment'文档类型',
   filing_date varchar(50) comment'归档日期',
@@ -53,6 +56,7 @@ ENGINE='InnoDB'
 
 create table tb_file(
   id int not null auto_increment,
+  company_id int,
   doc_id int comment'document id',
   url varchar(200) comment'',
   seq int comment'序号',

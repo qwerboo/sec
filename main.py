@@ -1,10 +1,10 @@
-from openpyxl import load_workbook
 from search import Scrape
 import pymysql
 import time
 import traceback
 import logging
-from logging import setup_logging
+from logging_config import setup_logging
+from openpyxl import load_workbook
 
 def get_conn():
     conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
@@ -21,7 +21,7 @@ def main():
     sql = "SELECT url from sec.tb_file"
     sqlOk = "SELECT id, is_ok from sec.tb_company where cik = %s"
     sqlInsertCompany = "INSERT into sec.tb_company(cik, name, sic, location, state_of_inc, \
-                        fiscal_year_end, baddr_state, baddr_city, baddr_street, baddr_zip, baddr_phone \
+                        fiscal_year_end, baddr_state, baddr_city, baddr_street, baddr_zip, baddr_phone, \
                         maddr_street, maddr_city, maddr_state, maddr_zip, ctime) \
                         values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
     sqkUpdateCompany = "UPDATE sec.tb_company set is_ok = 1 where id = %s"
@@ -58,8 +58,9 @@ def main():
         else:
             continue
         if not companyid:
+            print(company)
             cur.execute(sqlInsertCompany, (company.cik_, company.name_, company.sic_, \
-                        company.location_, company,state_of_inc_, company.fiscal_year_end_, \
+                        company.location_, company.state_of_inc_, company.fiscal_year_end_, \
                         company.baddr_state_, company.baddr_city_, company.baddr_street_, \
                         company.baddr_zip_, company.baddr_phone_, company.maddr_street_,  \
                         company.maddr_city_, company.maddr_state_, company.maddr_zip_, ctime))
@@ -72,7 +73,7 @@ def main():
             if cur.execute(sqlDoc, url):
                 docId = cur.fetchone()[0]
             else:
-                cur.execute(sqlInsetDoc, (doc.acc_no_, doc.url_, doc.company_id_, doc.type_, doc.filing_date_, \
+                cur.execute(sqlInsetDoc, (doc.acc_no_, url, doc.company_id_, doc.type_, doc.filing_date_, \
                                 doc.period_of_report_, doc.accepted_, doc.documents_, doc.company_name_, \
                                 doc.sic_, doc.state_of_inc_, doc.fiscal_year_end_, doc.baddr_street_, \
                                 doc.baddr_city_, doc.baddr_state_, doc.baddr_zip_, doc.baddr_phone_, \

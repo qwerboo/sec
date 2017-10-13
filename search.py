@@ -176,7 +176,7 @@ class Scrape(object):
                         text = str(text)
                     rawdata += text + '\n'
             f.rawdata_ = rawdata
-            f.msize = sys.getsizeof(f.rawdata_)/1000000)
+            f.msize = sys.getsizeof(f.rawdata_)/1000000
         return f
 
 if __name__ == '__main__':

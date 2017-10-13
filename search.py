@@ -170,8 +170,8 @@ class Scrape(object):
                 paragraphs = bs.findAll('p')
             rawdata = ''
             for para in paragraphs:
+                text = para.text
                 text = re.sub('\s+', '', text)
-                text = para.text.strip()
                 if text:
                     if isinstance(text, int):
                         text = str(text)

@@ -26,7 +26,12 @@ class Scrape(object):
         listPage = self.session.get(url)
         bs = BeautifulSoup(listPage.content, 'html.parser')
         company = Company()
-        companyName = bs.find('span', {'class', 'companyName'}).text
+        companyName = bs.find('span', {'class', 'companyName'})
+        if not companyName:
+            center = bs.find('center')
+            if center and center.text.strip() == 'No matching CIK.'
+                raise Exception("No matching CIK")
+        companyName = companyName.text
         company.name_ = re.search('(.*)CIK', companyName).group(1)
         company.cik_ = re.search('CIK#: (\d*)', companyName).group(1)
         identInfo = bs.find('p', {'class', 'identInfo'}).text

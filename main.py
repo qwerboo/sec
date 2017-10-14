@@ -60,7 +60,14 @@ def main():
             companyid = record[0]
             isOk = record[1]
         if not isOk:
-            company, urls = scrape.document_list(cik)
+            try:
+                company, urls = scrape.document_list(cik)
+            except Exception as e:
+                if e.args[0] == 'No matching CIK':
+                    logger.debug('No matching CIK:%s'%cik)
+                    continue
+                else:
+                    raise e
         else:
             continue
         if not companyid:

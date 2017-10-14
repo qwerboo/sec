@@ -29,7 +29,7 @@ class Scrape(object):
         companyName = bs.find('span', {'class', 'companyName'})
         if not companyName:
             center = bs.find('center')
-            if center and center.text.strip() == 'No matching CIK.'
+            if center and center.text.strip() == 'No matching CIK.':
                 raise Exception("No matching CIK")
         companyName = companyName.text
         company.name_ = re.search('(.*)CIK', companyName).group(1)

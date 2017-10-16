@@ -9,7 +9,8 @@ keyword_c = '|'.join(['contract', 'contracts', 'position', 'positions', 'instrum
 
 keyword_not = ['in the future', 'not', 'insignificant']
 
-reg = '(%s)[ ,.;:\'\(\)]{26}(%s)[ ,.;:\'\(\)]{26}(%s)'
+reg = '(%s)[^<>]{0,51}(%s)[^<>]{0,51}(%s)'
+# reg = '(%s)[ ,.;:\'\(\)]{26}(%s)[ ,.;:\'\(\)]{26}(%s)'
 reg_interest_0 = reg%(keyword_interest, keyword_b, keyword_c)
 reg_interest_1 = reg%(keyword_interest, keyword_c, keyword_b)
 reg_interest_2 = reg%(keyword_c, keyword_b, keyword_interest)
@@ -30,43 +31,37 @@ def main():
     db = Mydb()
     pageNum = 0
     while True:
-        files = db.get('sec.tb_file', 'id, company_id, doc_id, rawdata', option="id > %d"%pageNum, orderby='id', limit=1)
+        files = db.get('sec.tb_file', 'id, company_id, doc_id, source', option="id > %d"%pageNum, orderby='id', limit=1)
         for f in files:
             fileId = f[0]
-            print(time.strftime('%Y-%m-%d %H:%M:%S'),fileId)
+            # print(time.strftime('%Y-%m-%d %H:%M:%S'),fileId)
             pageNum = fileId
             companyId = f[1]
             docId = f[2]
             rawdata = f[3]
-            paragraphs = rawdata.split('\n')
             hintInterest = 0
             hintForex = 0
             ctime = time.strftime('%Y-%m-%d %H:%M:%S')
-            for para in paragraphs:
-                for reg in reg_interest:
-                    if para.strip():
-                        match = re.search(reg, para)
-                        if match:
-                            flag = True
-                            for kn in keyword_not:
-                                if match.group().find(kn) != -1:
-                                    flag = False
-                                    break
-                            if flag:
-                                hintInterest = hintInterest+1
-                                db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
-                for reg in reg_forex:
-                    if para.strip():
-                        match = re.search(reg, para)
-                        if match:
-                            flag = True
-                            for kn in keyword_not:
-                                if match.group().find(kn) != -1:
-                                    flag = False
-                                    break
-                            if flag:
-                                hintForex = hintForex+1
-                                db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
+            for reg in reg_interest:
+                for m in re.findall(reg, rawdata):
+                    flag = True
+                    for kn in keyword_not:
+                        if m[0].find(kn) != -1:
+                            flag = False
+                            break
+                    if flag:
+                        hintInterest = hintInterest+1
+                        db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': m[0]})
+            for reg in reg_forex:
+                for m in re.findall(reg, rawdata):
+                    flag = True
+                    for kn in keyword_not:
+                        if m[0].find(kn) != -1:
+                            flag = False
+                            break
+                    if flag:
+                        hintForex = hintForex+1
+                        db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': m[0]})
             db.insert('sec.t_hints', {'company_id':companyId, 'doc_id':docId, 'file_id':fileId, 'hint_interest':hintInterest, 'hint_forex':hintForex, 'ctime':ctime})
             print(time.strftime('%Y-%m-%d %H:%M:%S'), fileId, hintInterest, hintForex)
             db.conn.commit()

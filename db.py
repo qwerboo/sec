@@ -2,7 +2,7 @@ import pymysql
 
 class Mydb(object):
     """ 数据库操作类 """
-    def __init__(self, host='18.221.221.89', user='ai', passwd='AI2017'):
+    def __init__(self, host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com', user='root', passwd='AI2017aws'):
         self.conn = pymysql.connect(host=host,
                             user=user,
                             passwd=passwd,

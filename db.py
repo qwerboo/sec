@@ -2,12 +2,19 @@ import pymysql
 
 class Mydb(object):
     """ 数据库操作类 """
-    def __init__(self, host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com', user='root', passwd='AI2017aws'):
-        self.conn = pymysql.connect(host=host,
-                            user=user,
-                            passwd=passwd,
-                            charset="utf8mb4",
-                            max_allowed_packet=1024000000)
+    def __init__(self, env='dev'):
+        if env == 'dev':
+            self.conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
+                                user='ai',
+                                passwd='AI2017aws',
+                                charset="utf8mb4",
+                                max_allowed_packet=1024000000)
+        elif env == 'pro':
+            self.conn = pymysql.connect(host='localhost',
+                                user='root',
+                                passwd='AI2017aws',
+                                charset="utf8mb4",
+                                max_allowed_packet=1024000000)
         self.cur = self.conn.cursor()
 
     def get(self, table, fields, option=None, orderby=None, limit=None):

@@ -1,6 +1,7 @@
 from db import Mydb
 import re
 import time
+import sys
 
 keyword_interest = '|'.join(['Interest rate'])
 keyword_forex = '|'.join(['currency', 'foreign exchange', 'exchange rate'])
@@ -9,7 +10,7 @@ keyword_c = '|'.join(['contract', 'contracts', 'position', 'positions', 'instrum
 
 keyword_not = ['in the future', 'not', 'insignificant']
 
-reg = '(%s)[^<>]{0,51}(%s)[^<>]{0,51}(%s)'
+reg = '((%s)[^<>]{0,51}(%s)[^<>]{0,51}(%s))'
 # reg = '(%s)[ ,.;:\'\(\)]{26}(%s)[ ,.;:\'\(\)]{26}(%s)'
 reg_interest_0 = reg%(keyword_interest, keyword_b, keyword_c)
 reg_interest_1 = reg%(keyword_interest, keyword_c, keyword_b)
@@ -27,8 +28,8 @@ reg_forex_4 = reg%(keyword_b, keyword_c, keyword_forex)
 reg_forex_5 = reg%(keyword_b, keyword_forex, keyword_c)
 reg_forex = [reg_forex_0, reg_forex_1, reg_forex_2, reg_forex_3, reg_forex_4, reg_forex_5]
 
-def main():
-    db = Mydb()
+def main(env):
+    db = Mydb(env)
     pageNum = 0
     while True:
         files = db.get('sec.tb_file', 'id, company_id, doc_id, source', option="id > %d"%pageNum, orderby='id', limit=1)
@@ -67,4 +68,4 @@ def main():
             db.conn.commit()
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])

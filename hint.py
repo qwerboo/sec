@@ -9,8 +9,10 @@ keyword_b = '|'.join(['forward', 'forwards', 'future', 'futures', 'option', 'opt
 keyword_c = '|'.join(['contract', 'contracts', 'position', 'positions', 'instrument', 'instruments', 'agreement', 'agreements', 'obligation', 'obligations', 'transaction', 'transactions', 'strategy', 'strategies'])
 
 keyword_not = ['in the future', 'not', 'insignificant']
-
-reg = '((%s)[^<>]{0,51}(%s)[^<>]{0,51}(%s))'
+# 'a[\s\W]*(\w+[\s\W]*){0,2}[\s\W]*b'
+# 'a[^<>\w]*(\w+[^<>\w]*){0,2}[^<>\w]*b'
+# reg = '((%s)[^<>]{0,51}(%s)[^<>]{0,51}(%s))'
+reg = '((%s)[^<>\w]*(\w+[^<>\w]*){0,25}[^<>\w]*(%s)[^<>\w]*(\w+[^<>\w]*){0,25}[^<>\w]*(%s))'
 # reg = '(%s)[ ,.;:\'\(\)]{26}(%s)[ ,.;:\'\(\)]{26}(%s)'
 reg_interest_0 = reg%(keyword_interest, keyword_b, keyword_c)
 reg_interest_1 = reg%(keyword_interest, keyword_c, keyword_b)
@@ -33,6 +35,8 @@ def main(env):
     pageNum = 0
     while True:
         files = db.get('sec.tb_file', 'id, company_id, doc_id, source', option="id > %d"%pageNum, orderby='id', limit=1)
+        if len(files) == 0:
+            break
         for f in files:
             fileId = f[0]
             # print(time.strftime('%Y-%m-%d %H:%M:%S'),fileId)

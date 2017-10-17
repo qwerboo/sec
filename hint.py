@@ -3,16 +3,12 @@ import re
 import time
 import sys
 
-keyword_interest = ''
-keyword_forex = []
-keyword_b = ['forward', 'forwards', 'future', 'futures', 'option', 'options', 'swap', 'swaps', 'spot', 'spots', 'collar', 'collars', 'cap', 'caps', 'ceiling', 'ceilings', 'floor', 'floors', 'lock', 'locks', 'derivative', 'derivatives', 'hedge', 'hedges', 'hedging', 'hedged']
-keyword_c = ['contract', 'contracts', 'position', 'positions', 'instrument', 'instruments', 'agreement', 'agreements', 'obligation', 'obligations', 'transaction', 'transactions', 'strategy', 'strategies']
-
-keyword_not = ['in the future', 'not', 'insignificant']
-
 def main(env):
     db = Mydb(env)
     pageNum = 0
+    keyword_b = ['forward', 'forwards', 'future', 'futures', 'option', 'options', 'swap', 'swaps', 'spot', 'spots', 'collar', 'collars', 'cap', 'caps', 'ceiling', 'ceilings', 'floor', 'floors', 'lock', 'locks', 'derivative', 'derivatives', 'hedge', 'hedges', 'hedging', 'hedged']
+    keyword_c = ['contract', 'contracts', 'position', 'positions', 'instrument', 'instruments', 'agreement', 'agreements', 'obligation', 'obligations', 'transaction', 'transactions', 'strategy', 'strategies']
+    keyword_not = ['in the future', 'not', 'insignificant']
     while True:
         files = db.get('sec.tb_file', 'id, company_id, doc_id, source', option="id > %d"%pageNum, orderby='id', limit=1)
         if len(files) == 0:
@@ -28,28 +24,36 @@ def main(env):
             hintForex = 0
             ctime = time.strftime('%Y-%m-%d %H:%M:%S')
             index1 = 0
-            for keyword in ['Interest rate', 'currency', 'foreign exchange', 'exchange rate']:
+            for keyword in ['Interest rate', 'interest rate', 'currency', 'foreign exchange', 'exchange rate']:
                 while True:
+                    print(index1)
                     index1 = rawdata.find(keyword, index1)
+                    print(fileId, keyword, index1)
                     if index1 >= 0:
-                        flag_b, flag_c = get_pos(rawdata, index1, keyword_b, keyword_c)
+                        index, flag_b, flag_c = get_pos(rawdata, index1, keyword, keyword_b, keyword_c)
                         if not flag_b or not flag_c:
-                            index, flag_c, flag_b = get_pos(rawdata, index1, keyword_c, keyword_b)
+                            index, flag_c, flag_b = get_pos(rawdata, index1, keyword, keyword_c, keyword_b)
                         if flag_b and flag_c:
                             para = rawdata[min([index1, flag_b, flag_c]):max([index1, flag_b, flag_c])]
-                            if keyword == 'Interest rate':
-                                hintInterest += 1
-                                db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
-                            else:
-                                hintForex += 1
-                                db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
+                            flag = True
+                            for kn in keyword_not:
+                                if para.find(kn) != -1:
+                                    flag = False
+                                    break
+                            if flag:
+                                if keyword == 'Interest rate' or keyword == 'interest rate':
+                                    hintInterest += 1
+                                    db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
+                                else:
+                                    hintForex += 1
+                                    db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
                     if index1 == -1:
+                        index1 = 0
                         break
-                    index1 = index1 + len(keyword_interest)
+                    index1 = index1 + len(keyword)
             db.insert('sec.t_hints', {'company_id':companyId, 'doc_id':docId, 'file_id':fileId, 'hint_interest':hintInterest, 'hint_forex':hintForex, 'ctime':ctime})
             print(time.strftime('%Y-%m-%d %H:%M:%S'), fileId, hintInterest, hintForex)
             db.conn.commit()
-
 
 def get_pos(rawdata, index1, keyword, keyword_b, keyword_c):
     flag_b = None

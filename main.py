@@ -5,6 +5,7 @@ import traceback
 import logging
 from logging_config import setup_logging
 from openpyxl import load_workbook
+from hint import get_hint
 
 def get_conn():
     conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
@@ -19,6 +20,21 @@ def get_conn():
     #                     max_allowed_packet=1024000000)
     cur = conn.cursor()
     return conn, cur
+
+def tmp_main():
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    cik = int('0000000020')
+    scrape = Scrape()
+    company, urls = scrape.document_list(cik)
+    for url in urls:
+        doc, files = scrape.file_list(url)
+        logger.info('fiscal_year_end_%s'%doc.filing_date_)
+        for record in files:
+            f = scrape.extract_rawdata(record)
+            logger.info('文件大小：%s，文件实际大小：%s'%(f.size_, f.msize))
+            hintInterest, hintForex = get_hint(f.source_.decode('utf-8'))
+            logger.info('hintInterest:%s, hintForex:%s'%(hintInterest, hintForex))
 
 def main():
     setup_logging()

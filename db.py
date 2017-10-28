@@ -4,7 +4,7 @@ class Mydb(object):
     """ 数据库操作类 """
     def __init__(self, env='dev'):
         if env == 'dev':
-            self.conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
+            self.conn = pymysql.connect(host='ec2-13-113-193-173.ap-northeast-1.compute.amazonaws.com',
                                 user='ai',
                                 passwd='AI2017aws',
                                 charset="utf8mb4",

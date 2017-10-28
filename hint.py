@@ -53,11 +53,11 @@ def get_hint(rawdata):
                         if keyword == 'Interest rate' or keyword == 'interest rate':
                             hintInterest += 1
                             print(para)
-                            # db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
+                            db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
                         else:
                             hintForex += 1
                             print(para)
-                            # db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
+                            db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
             if index1 == -1:
                 index1 = 0
                 break

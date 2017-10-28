@@ -23,8 +23,10 @@ def main(env):
             hintInterest = 0
             hintForex = 0
             ctime = time.strftime('%Y-%m-%d %H:%M:%S')
-            hintInterest, hintForex = get_hint(rawdata)
+            hintInterest, hintForex, paras = get_hint(rawdata)
             db.insert('sec.t_hints', {'company_id':companyId, 'doc_id':docId, 'file_id':fileId, 'hint_interest':hintInterest, 'hint_forex':hintForex, 'ctime':ctime})
+            for p in paras:
+                db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':p[0], 'paragraph': p[1]})
             print(time.strftime('%Y-%m-%d %H:%M:%S'), fileId, hintInterest, hintForex)
             db.conn.commit()
 
@@ -35,6 +37,7 @@ def get_hint(rawdata):
     keyword_b = ['forward', 'future', 'option', 'swap', 'spot', 'collar', 'cap', 'ceiling', 'floor', 'lock', 'derivative', 'hedge', 'hedging']
     keyword_c = ['contract', 'position', 'instrument', 'agreement', 'obligation', 'transaction', 'strategy', 'strategies']
     keyword_not = ['in the future', 'not', 'insignificant', 'no']
+    paras = []
     for keyword in ['interest rate', 'currency', 'foreign exchange', 'exchange rate']:
         while True:
             index1 = rawdata.find(keyword, index1)
@@ -53,16 +56,18 @@ def get_hint(rawdata):
                         if keyword == 'Interest rate' or keyword == 'interest rate':
                             hintInterest += 1
                             print(para)
-                            db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
+                            paras.append((1, para))
+                            # db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':1, 'paragraph': para})
                         else:
                             hintForex += 1
                             print(para)
-                            db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
+                            paras.append((2, para))
+                            # db.insert('sec.t_hints_files', {'file_id':fileId, 'hint_type':2, 'paragraph': para})
             if index1 == -1:
                 index1 = 0
                 break
             index1 = index1 + len(keyword)
-    return hintInterest, hintForex
+    return hintInterest, hintForex, paras
 
 def get_pos(rawdata, index1, keyword, keyword_b, keyword_c):
     rawdata = rawdata.lower()

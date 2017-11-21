@@ -63,8 +63,6 @@ create table tb_file(
   describtion varchar(200) comment'描述',
   type varchar(20) comment'类型',
   size int comment'大小',
-  source text comment'源文件',
-  rawdata text comment'',
   primary key(id)
 )
 COMMENT='文件'
@@ -72,12 +70,12 @@ COLLATE='utf8mb4_general_ci'
 ENGINE='InnoDB'
 ;
 
-create table tmp_cik(
-  id int not null auto_increment,
-  cik varchar(20),
-  primary key(id)
-)
-COMMENT='文件'
-COLLATE='utf8mb4_general_ci'
-ENGINE='InnoDB'
-;
+-- create table tmp_cik(
+--   id int not null auto_increment,
+--   cik varchar(20),
+--   primary key(id)
+-- )
+-- COMMENT='文件'
+-- COLLATE='utf8mb4_general_ci'
+-- ENGINE='InnoDB'
+-- ;

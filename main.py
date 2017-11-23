@@ -6,18 +6,14 @@ import logging
 from logging_config import setup_logging
 from openpyxl import load_workbook
 from hint import get_hint
+from entity import File
 
 def get_conn():
-    conn = pymysql.connect(host='ec2-54-250-215-159.ap-northeast-1.compute.amazonaws.com',
-                        user='ai',
+    conn = pymysql.connect(host='127.0.0.1',
+                        user='root',
                         passwd='AI2017aws',
-                        charset="utf8mb4",
-                        max_allowed_packet=1024000000)
-    # conn = pymysql.connect(host='localhost',
-    #                     user='root',
-    #                     passwd='AI2017aws',
-    #                     charset="utf8mb4",
-    #                     max_allowed_packet=1024000000)
+                        charset="utf8mb4"
+                        )
     cur = conn.cursor()
     return conn, cur
 
@@ -37,6 +33,7 @@ def tmp_main():
             logger.info('hintInterest:%s, hintForex:%s'%(hintInterest, hintForex))
 
 def main():
+    ''' 保存公司基本信息 '''
     setup_logging()
     logger = logging.getLogger(__name__)
     conn, cur = get_conn()
@@ -54,7 +51,7 @@ def main():
                     baddr_phone, maddr_street, maddr_city, maddr_state, maddr_zip) \
                     values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
     sqlInsertFile = "INSERT into sec.tb_file(company_id, doc_id, url, seq, describtion, type, \
-                    size, source, rawdata) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+                    size) values(%s,%s,%s,%s,%s,%s,%s)"
     fileSet = set()
     if cur.execute(sql):
         fileSet = set(record[0] for record in cur.fetchall())
@@ -111,16 +108,39 @@ def main():
                 conn.commit()
             for record in files:
                 if record[2] not in fileSet:
-                    f = scrape.extract_rawdata(record)
-                    logger.debug('文件大小：%s，文件实际大小：%s'%(f.size_, f.msize))
+                    f = File()
+                    f.seq_ = record[0]
+                    f.describtion_ = record[1]
+                    f.url_ = record[2]
+                    f.type_ = record[3]
+                    f.size_ = record[4]
                     f.company_id_ = companyid
                     f.doc_id_ = docId
                     cur.execute(sqlInsertFile, (f.company_id_, f.doc_id_, f.url_, f.seq_, \
-                                f.describtion_, f.type_, f.size_, f.source_, f.rawdata_))
+                                f.describtion_, f.type_, f.size_))
                     conn.commit()
                     fileSet.add(f.url_)
         cur.execute(sqkUpdateCompany, companyid)
         conn.commit()
+
+def main_es():
+    ''' 保存企业发布的文档 '''
+    session = requests.Session()
+    conn, cur = get_conn()
+    sql = "SELECT id, company_id, doc_id, url from sec.tb_file where id>%s order by id limit 100"
+    pageNum = 0
+    while True:
+        if cur.execute(sql, pageNum):
+            for record in cur.fetchall():
+                fileId = record[0]
+                companyId = record[1]
+                docId = record[2]
+                url = record[3]
+                source = session.get(f.url_)
+                rawdata = source.content
+
+        else:
+            break
 
 if __name__ == '__main__':
     main()

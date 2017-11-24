@@ -138,7 +138,7 @@ def main_es():
                 url = record[3]
                 source = session.get(f.url_)
                 rawdata = source.content
-
+                
         else:
             break
 

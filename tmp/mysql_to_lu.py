@@ -18,7 +18,7 @@ def main_syn_rawdata():
     '同步原始文书'
     sql = "SELECT caseid, rawdata from ip_infos.t_case_rawdata where caseid > %s order by caseid limit 10"
     conn, cur = get_conn()
-    pageNum = 50
+    pageNum = 9999
     while True:
         if cur.execute(sql, pageNum):
             for record in cur.fetchall():

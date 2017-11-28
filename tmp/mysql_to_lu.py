@@ -1,5 +1,6 @@
 from datetime import datetime
 from elasticsearch import Elasticsearch
+from elasticsearch import helpers
 import pymysql
 
 es = Elasticsearch()
@@ -18,20 +19,27 @@ def main_syn_rawdata():
     '同步原始文书'
     sql = "SELECT caseid, rawdata from ip_infos.t_case_rawdata where caseid > %s order by caseid limit 10"
     conn, cur = get_conn()
-    pageNum = 9999
+    pageNum = 352664
     while True:
         if cur.execute(sql, pageNum):
+            actions = []
             for record in cur.fetchall():
                 caseid = record[0]
                 rawdata = record[1]
                 pageNum = caseid
                 doc = {
-                    'rawdata': rawdata,
-                    'timestamp': datetime.now()
+                    '_index': 'zcb_rawdata',
+                    '_type': 'rawdata',
+                    '_id': caseid,
+                    '_source': {
+                        'rawdata': rawdata,
+                        'timestamp': datetime.now()}
                 }
-                res = es.index(index='zcb_rawdata', doc_type='rawdata', id=caseid, body=doc)
-                print(res['_id'], res['result'])
-                break
+                actions.append(doc)
+            print(pageNum)
+            res = helpers.bulk(es, actions)
+            print(res)
+            # break
         else:
             break
 

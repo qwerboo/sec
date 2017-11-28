@@ -7,6 +7,10 @@ from logging_config import setup_logging
 from openpyxl import load_workbook
 from hint import get_hint
 from entity import File
+from clean import clean_file
+from elasticsearch import Elasticsearch
+from datetime import datetime
+import requests
 
 def get_conn():
     conn = pymysql.connect(host='127.0.0.1',
@@ -128,19 +132,30 @@ def main_es():
     session = requests.Session()
     conn, cur = get_conn()
     sql = "SELECT id, company_id, doc_id, url from sec.tb_file where id>%s order by id limit 100"
-    pageNum = 0
+    pageNum = 27382
+    es = Elasticsearch()
     while True:
         if cur.execute(sql, pageNum):
             for record in cur.fetchall():
                 fileId = record[0]
+                pageNum = fileId
                 companyId = record[1]
                 docId = record[2]
                 url = record[3]
-                source = session.get(f.url_)
-                rawdata = source.content
-                
+                source = session.get(url).text
+                rawdata = clean_file(source)
+                doc = {
+                    'company_id': companyId,
+                    'doc_id': docId,
+                    'url': url,
+                    'source': source,
+                    'rawdata': rawdata,
+                    'timestamp': datetime.now()
+                }
+                res = es.index(index="sec_file", doc_type='file', id=fileId, body=doc)
+                print(fileId, res['result'])
         else:
             break
 
 if __name__ == '__main__':
-    main()
+    main_es()

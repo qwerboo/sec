@@ -12,6 +12,10 @@ from clean import clean_file
 from elasticsearch import Elasticsearch
 from datetime import datetime
 import requests
+import pandas as pd
+import os
+import sys
+import re
 
 
 def get_conn():
@@ -80,6 +84,10 @@ def main():
         try:
             int(cik)
         except ValueError as e:
+            print("cik格式不符", cik)
+            continue
+        if len(cik) != 10:
+            print("cik长度不符", cik)
             continue
         logger.debug('cik:%s' % cik)
         companyid = None
@@ -89,6 +97,7 @@ def main():
             companyid = record[0]
             isOk = record[1]
         if not isOk:
+            print("cik采集", cik)
             try:
                 company, urls = scrape.document_list(cik)
             except Exception as e:
@@ -98,6 +107,7 @@ def main():
                 else:
                     raise e
         else:
+            print("cik已存在", cik)
             continue
         if not companyid:
             print(company)
@@ -156,7 +166,7 @@ def main_es():
     conn, cur = get_conn()
     sql = """SELECT id, company_id, doc_id, url from sec.tb_file
         where id>%s order by id limit 100"""
-    pageNum = 86511
+    pageNum = 113971
     es = Elasticsearch()
     while True:
         if cur.execute(sql, pageNum):
@@ -166,7 +176,13 @@ def main_es():
                 companyId = record[1]
                 docId = record[2]
                 url = record[3]
-                content = session.get(url).text
+                while True:
+                    try:
+                        content = session.get(url, timeout=(10)).text
+                    except Exception as e:
+                        print(e)
+                        continue
+                    break
                 # source = session.get(url).text
                 # rawdata = clean_file(source)
                 doc = {
@@ -185,5 +201,46 @@ def main_es():
             break
 
 
+def main_export():
+    """导出."""
+    df = pd.read_excel('CIK.xlsx', dtype="str")
+    sqlDoc = '''SELECT c.id as cid, t.id as did, t.filing_date
+        from sec.tb_document t left join sec.tb_company c on t.company_id=c.id
+        where c.cik=%s'''
+    sqlFile = '''SELECT id
+        from sec.tb_file where company_id=%s and doc_id=%s'''
+    conn, cur = get_conn()
+    es = Elasticsearch()
+    for i in range(len(df)):
+        cik = df['CIK'][i]
+        if not os.path.exists(cik):
+            os.mkdir(cik)
+            os.chdir(cik)
+        else:
+            print("CIK已存在")
+            continue
+        dfDoc = pd.read_sql(sqlDoc % cik, conn)
+        for j in range(len(dfDoc)):
+            companyId = dfDoc['cid'][j]
+            docId = dfDoc['did'][j]
+            fDate = dfDoc['filing_date'][j]
+            if not os.path.exists(fDate):
+                os.mkdir(fDate)
+            os.chdir(fDate)
+            dfFile = pd.read_sql(sqlFile % (companyId, docId), conn)
+            for k in len(dfFile):
+                fileId = dfFile['id'][k]
+                res = es.get(index='sec_file', doc_type='file', id=fileId)
+                url = res['_source']['url']
+                content = res['_source']['content']
+                match = re.search('/([^/]*\.(htm|txt))', url)
+                fileName = match.group(1)
+                f = open(fileName, 'w')
+                f.write(content)
+            os.chdir('../')
+        os.chdir('../')
+
+
 if __name__ == '__main__':
-    main_es()
+    # main()
+    # main_es()

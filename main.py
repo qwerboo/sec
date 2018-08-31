@@ -76,11 +76,11 @@ def main():
     if cur.execute(sql):
         fileSet = set(record[0] for record in cur.fetchall())
     scrape = Scrape()
-    wb = load_workbook('CIK.xlsx')
-    sheet = wb.get_sheet_by_name('Sheet1')
+    wb = load_workbook('./demand20180810/Sample_short.xlsx')
+    sheet = wb.get_sheet_by_name('Sample_short2')
     for v in sheet.values:
         ctime = time.strftime('%Y-%m-%d %H:%M:%S')
-        cik = v[0]
+        cik = v[7]
         try:
             int(cik)
         except ValueError as e:
@@ -90,6 +90,7 @@ def main():
             print("cik长度不符", cik)
             continue
         logger.debug('cik:%s' % cik)
+
         companyid = None
         isOk = 0
         if cur.execute(sqlOk, cik):
@@ -165,38 +166,43 @@ def main_es():
     session = requests.Session()
     conn, cur = get_conn()
     sql = """SELECT id, company_id, doc_id, url from sec.tb_file
-        where id>%s order by id limit 100"""
-    pageNum = 113971
+        where id>%s and type like '10-k%%' and status=0
+        order by id limit 1000"""
+    sqlUpdate = """UPDATE sec.tb_file set status=1 where id=%s"""
+    pageNum = 0
     es = Elasticsearch()
     while True:
         if cur.execute(sql, pageNum):
             for record in cur.fetchall():
                 fileId = record[0]
-                pageNum = fileId
                 companyId = record[1]
                 docId = record[2]
                 url = record[3]
-                while True:
-                    try:
-                        content = session.get(url, timeout=(10)).text
-                    except Exception as e:
-                        print(e)
-                        continue
-                    break
-                # source = session.get(url).text
-                # rawdata = clean_file(source)
-                doc = {
-                    'company_id': companyId,
-                    'doc_id': docId,
-                    'url': url,
-                    'content': content,
-                    # 'source': source,
-                    # 'rawdata': rawdata,
-                    'timestamp': datetime.now()
-                }
-                res = es.index(index="sec_file", doc_type='file',
-                               id=fileId, body=doc)
-                print(fileId, res['result'])
+                if not es.exists('sec_file', 'file', fileId):
+                    while True:
+                        try:
+                            content = session.get(url, timeout=(10)).text
+                        except Exception as e:
+                            print(url, e)
+                            continue
+                        break
+                    doc = {
+                        'company_id': companyId,
+                        'doc_id': docId,
+                        'url': url,
+                        'content': content,
+                        # 'source': source,
+                        # 'rawdata': rawdata,
+                        'timestamp': datetime.now()
+                    }
+                    res = es.index(index="sec_file", doc_type='file',
+                                   id=fileId, body=doc)
+                    print(fileId, res['result'])
+                else:
+                    print(fileId)
+                cur.execute(sqlUpdate, fileId)
+            conn.commit()
+            pageNum = fileId
         else:
             break
 
@@ -243,4 +249,4 @@ def main_export():
 
 if __name__ == '__main__':
     # main()
-    # main_es()
+    main_es()
